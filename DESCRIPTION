@@ -1,0 +1,32 @@
+Package: gsAnalysis
+Title: Miscellaneous tools for genomic sequence analysis
+Version: 0.0.1
+Authors@R: 
+    person("Ye", "Yuan", , "yeyu@umich.edu", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-9641-9102"))
+Description: A miscellaneous toolbox for various genomic sequence 
+    analysis tasks. Refer to package vignettes for different topics covered 
+    in this package. Part of the y3628 analysis suite.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+biocViews: CellBiology, Genetics
+Imports: 
+    dplyr,
+    readr,
+    tibble,
+    stringr,
+    BSgenome,
+    Biostrings,
+    GenomicRanges,
+    rtracklayer,
+    universalmotif
+Depends: 
+    R (>= 4.1)
+Suggests: 
+    BSgenome.Dmelanogaster.UCSC.dm6,
+    knitr,
+    rmarkdown,
+    TxDb.Dmelanogaster.UCSC.dm6.ensGene
+VignetteBuilder: knitr
