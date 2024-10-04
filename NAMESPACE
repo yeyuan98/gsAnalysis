@@ -2,4 +2,5 @@
 
 export(BranchPointScan)
 export(MaxEntScan)
+export(RIME)
 export(phastCons)

@@ -320,3 +320,68 @@ BranchPointScan <-
 
     return(scan.all$dist2ss3)
   }
+
+
+#' Intron length ratio to mean neighboring exons
+#'
+#' @param txdb Bioconductor TxDb. Must match the intron GRanges.
+#' @param GRange.intron GenomicRanges::GRanges of the introns.
+#'
+#' @return Numeric vector of the ratios.
+#' @export
+#'
+#' @examples
+#' vignette("intron-properties")
+RIME <-
+  function(
+    txdb = TxDb.Dmelanogaster.UCSC.dm6.ensGene::TxDb.Dmelanogaster.UCSC.dm6.ensGene,
+    GRange.intron
+  ){
+
+    # Get all exons
+    exons <- GenomicFeatures::exons(txdb)
+    #   Completely possible that
+    #     multiple exon variants are adjacent to the intron of intereest
+    #     Given that we don't know which transcript to look at
+    #       reduce the exons, which is not ideal but hopefully ok often times.
+    exons <- GenomicRanges::reduce(exons)
+
+    # For RI introns, obviously they will not overlap TWO exons...
+    #   Because existence of an exon that includes this intron
+    #   Therefore, subtract those
+    exons <- unlist(GenomicRanges::subtract(exons, GRange.intron))
+
+    # If we have overlapping RI introns, after subtraction any of the overlapping
+    #   introns will be adjacent to only one exon
+    # Therefore, reduce the introns
+    length.original <- length(GRange.intron)
+    GRange.intron <- GenomicRanges::reduce(GRange.intron)
+    if (length(GRange.intron) != length.original)
+      warning("Overlapping input introns are merged. Result length may vary.")
+
+    # Identify adjacent exons for introns
+    ovl <- GenomicRanges::findOverlaps(
+      GRange.intron, exons, maxgap = 0, type = "any"
+    )
+    ovl <- as.data.frame(ovl)
+
+    # Sanity check - must find TWO exons for EACH intron queried
+    if (length(unique(ovl$queryHits)) != length(GRange.intron))
+      stop("Could not find exon hits for some introns")
+    if (nrow(ovl) != 2*length(GRange.intron))
+      stop("Could not find two adjacent exons for some introns")
+
+    # Get mean exon width and arrange in order
+    ovl <- ovl |>
+      dplyr::mutate(
+        width = GenomicRanges::width(exons)[subjectHits]
+      ) |>
+      dplyr::group_by(queryHits) |>
+      dplyr::summarize(mean.exon = mean(width), .groups = "drop") |>
+      dplyr::arrange(queryHits)
+
+    # Return the values
+    return(
+      GenomicRanges::width(GRange.intron) / ovl$mean.exon
+    )
+  }
