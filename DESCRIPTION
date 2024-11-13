@@ -1,6 +1,6 @@
 Package: gsAnalysis
 Title: Miscellaneous tools for genomic sequence analysis
-Version: 0.0.1
+Version: 0.0.2
 Authors@R: 
     person("Ye", "Yuan", , "yeyu@umich.edu", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0001-9641-9102"))
@@ -22,7 +22,8 @@ Imports:
     GenomicRanges,
     rtracklayer,
     universalmotif,
-    GenomicFeatures
+    GenomicFeatures,
+    SummarizedExperiment
 Depends: 
     R (>= 4.1)
 Suggests: 

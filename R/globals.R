@@ -3,5 +3,7 @@
 utils::globalVariables(c(
   # intron.properties
   c("subjectHits", "queryHits", "score",
-    "sequence.i", "sequence.width", "start", "width")
+    "sequence.i", "sequence.width", "start", "width"),
+  # intron.AS
+  c("name")
 ))
