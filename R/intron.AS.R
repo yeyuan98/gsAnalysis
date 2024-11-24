@@ -95,6 +95,36 @@ rmats_read <- function(outputs.dir, method){
 }
 
 
+#' Converts rMATS data frame to GenomicRange
+#'
+#' Convenience function for converting rMATS data to GRanges.
+#'
+#' @param df rMATS data read by `rmats_read()`.
+#' @param ... <[`tidy-select`][dplyr::dplyr_tidy_select]> See details.
+#'
+#' Three columns are used to fill in GRanges information: `chr`, `start_0base`, `end`.
+#'
+#' Two columns are by default added to the metadata: `geneSymbol`, `Type`.
+#'
+#' Extra metadata columns are specified by the tidyselect ellipsis.
+#'
+#'
+#' @return GRanges object
+#' @export
+#'
+#' @examples
+#' #TODO
+rmats_toGRange <- function(df, ...){
+  gr <- GenomicRanges::makeGRangesFromDataFrame(
+    df, start.field = "start_0base", starts.in.df.are.0based = TRUE,
+    seqnames.field = "chr", ignore.strand = TRUE
+  )
+  meta <- dplyr::select(df, c(dplyr::matches("geneSymbol|Type"), ...))
+  GenomicRanges::mcols(gr) <- meta
+  return(gr)
+}
+
+
 #' Read IRFinder-S output of a single sample
 #'
 #' @param result.dir IRFinder-S output directory

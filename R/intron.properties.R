@@ -356,8 +356,11 @@ RIME <-
     # Therefore, reduce the introns
     length.original <- length(GRange.intron)
     GRange.intron <- GenomicRanges::reduce(GRange.intron)
-    if (length(GRange.intron) != length.original)
-      warning("Overlapping input introns are merged. Result length may vary.")
+    if (length(GRange.intron) != length.original){
+      mess <- "Overlapping input introns are merged. merged/all=%d/%d"
+      mess <- sprintf(mess, length(GRange.intron), length.original)
+      warning(mess)
+    }
 
     # Identify adjacent exons for introns
     ovl <- GenomicRanges::findOverlaps(
@@ -368,8 +371,10 @@ RIME <-
     # Sanity check - must find TWO exons for EACH intron queried
     if (length(unique(ovl$queryHits)) != length(GRange.intron))
       stop("Could not find exon hits for some introns")
-    if (nrow(ovl) != 2*length(GRange.intron))
-      stop("Could not find two adjacent exons for some introns")
+    if (nrow(ovl) != 2*length(GRange.intron)){
+      mess <- "Introns without two adjacent exons are removed. removed/all=%d/%d"
+      # TODO
+    }
 
     # Get mean exon width and arrange in order
     ovl <- ovl |>
