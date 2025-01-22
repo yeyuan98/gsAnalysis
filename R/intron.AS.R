@@ -95,6 +95,71 @@ rmats_read <- function(outputs.dir, method){
 }
 
 
+#' Filtering rMATS output of different AS patterns
+#'
+#' @param df Data frame of parsed rMATS output. Use `rmats_read()`.
+#' @param supp_reads Supporting read filter. See details.
+#' @param incLvl_limits Inclusion level filter. See details.
+#'
+#' @return Filtered rMATS output. See details.
+#' @export
+#' @details
+#' Typically, it is desirable to filter the rMATS output to:
+#'
+#' - Reject detected AS events that have too few supporting reads.
+#' - Remove AS events whose inclusion levels are extreme.
+#'
+#' This function applies the following filters (default parameters assumed):
+#'
+#' 1. Supporting read count (both EJC and IJC) must be >=5 in >=2 samples.
+#' 2. Inclusion level must be in the range of 0.05-0.95.
+#'
+#' @examples
+#' #TODO
+#'
+rmats_filter <- function(df, supp_reads = c(5, 2), incLvl_limits = c(.05, .95)){
+
+  # Helper functions for filtering
+  suppReads.summary <- \(x){
+    # Criteria, applied to junction counts
+    x <- as.numeric(x)
+    # At least two samples report >= 5 junction reads
+    return(sum(x >= supp_reads[1], na.rm = TRUE) >= supp_reads[2])
+  }
+  incLevel.summary <- \(x){
+    # Criteria, applied to inclusion levels
+    x <- stats::median(as.numeric(x), na.rm = TRUE)
+    # Median inclusion level is not extreme
+    return(x >= incLvl_limits[1] & x <= incLvl_limits[2])
+  }
+
+  # Apply filter on both sample groups
+  suppressWarnings(
+    SignifLevel1 <-
+      y3628::str_split_summary(df$IJC_SAMPLE_1, ",", suppReads.summary) &
+      y3628::str_split_summary(df$SJC_SAMPLE_1, ",", suppReads.summary) &
+      y3628::str_split_summary(df$IncLevel1, ",", incLevel.summary)
+  )
+  suppressWarnings(
+    SignifLevel2 <-
+      y3628::str_split_summary(df$IJC_SAMPLE_2, ",", suppReads.summary) &
+      y3628::str_split_summary(df$SJC_SAMPLE_2, ",", suppReads.summary) &
+      y3628::str_split_summary(df$IncLevel2, ",", incLevel.summary)
+  )
+
+  # Report and return
+  final <- SignifLevel1 & SignifLevel2
+  message(paste(
+    "rMATS filtering:",
+    paste0("Before filtering = ", nrow(df)),
+    paste0("Group1 pass filter = ", sum(SignifLevel1)),
+    paste0("Group2 pass filter = ", sum(SignifLevel2)),
+    paste0("Both groups passed (final) = ", sum(final))
+    , sep = "\n    "
+  ))
+  return(df[final,])
+}
+
 #' Converts rMATS data frame to GenomicRange
 #'
 #' Convenience function for converting rMATS data to GRanges.

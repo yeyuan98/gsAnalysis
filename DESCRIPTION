@@ -23,7 +23,8 @@ Imports:
     rtracklayer,
     universalmotif,
     GenomicFeatures,
-    SummarizedExperiment
+    SummarizedExperiment,
+    y3628
 Depends: 
     R (>= 4.1)
 Suggests: 
