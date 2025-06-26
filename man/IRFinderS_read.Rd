@@ -23,6 +23,8 @@ Two sample types are output by IRFinder-S: \code{validated} and \code{full}.
 \item \code{validated}: read the "IRFinder-IR-nondir-val.txt"
 \item \code{full}: read the "IRFinder-IR-nondir.txt"
 }
+
+For column names please refer to the function body
 }
 \examples{
 #TODO

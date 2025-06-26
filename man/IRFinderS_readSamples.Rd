@@ -6,8 +6,8 @@
 \usage{
 IRFinderS_readSamples(
   named.result.dirs,
-  score.column = "IR.ratio",
-  join.column = c("chr", "start", "end", "strand", "symbol"),
+  assay.columns = c("IR.ratio", "depth", "n.reads.spliceExact"),
+  join.columns = c("chr", "start", "end", "strand", "symbol"),
   type.samples = "validated",
   min.samples = 3,
   wl = 0
@@ -16,9 +16,9 @@ IRFinderS_readSamples(
 \arguments{
 \item{named.result.dirs}{Named paths to result directories, see description.}
 
-\item{score.column}{Which one column to read in as score.}
+\item{assay.columns}{Which column(s) to read in as assays of the output.}
 
-\item{join.column}{Which columns define an intron.}
+\item{join.columns}{Which columns define an intron.}
 
 \item{type.samples}{Forwarded to \code{IRFinderS_read()}.}
 
@@ -27,7 +27,7 @@ IRFinderS_readSamples(
 \item{wl}{How to filter retained introns, see description.}
 }
 \value{
-\code{SummarizedExperiment} object.
+\code{SummarizedExperiment} object of IRFinder results.
 }
 \description{
 Report a "merged" SummarizedExperiment for differential analysis. Refer to
@@ -38,21 +38,31 @@ The routine is divided into the following steps:
 
 First, read in retained introns from each sample by \code{IRFinderS_read}.
 
-Introns that have warnings defined by \code{wl} is removed from each sample.
-\code{wl} definition follows that of the \verb{IRFinder Diff} routine.
-
-Unique introns are defined by columns specified in \code{join.column}.
-
-Next, consensus introns are determined. If an intron is found in at least
-\code{min.samples} of samples it is considered as a consensus intron.
-
-Finally, intron scores from the 'full' data table are extracted,
-which will be put as the "scores" assay in the output SE object.
-
 \code{named.result.dirs} must be a named character vector whose:
 \itemize{
 \item names = group name
 \item values = full path to the sample result directories
+}
+
+Introns that have warnings defined by \code{wl} is removed from each sample.
+\code{wl} definition follows that of the \verb{IRFinder Diff} routine.
+
+Unique introns are defined by columns specified in \code{join.columns}.
+
+Next, consensus introns are determined. If an intron is found in at least
+\code{min.samples} of samples it is considered as a consensus intron.
+
+Finally, intron data from the 'full' data table are extracted,
+which will be put as assays in the output SE object. Which data columns are
+included is defined by \code{assay.columns}.
+\subsection{\code{wl} filtering}{
+
+This filtering determines whether an intron is included in a sample.
+It looks at the warning flags by IRFinder and possible values are:
+
+0 -> no filter; 1 -> LowCover introns removed; 2 -> Lowcover & LowSplicing;
+3 -> LowCover & LowSplicing & MinorIsoform;
+4 -> LowCover & LowSplicing & MinorIsoform & NonUniformIntronCover
 }
 }
 \examples{

@@ -24,7 +24,11 @@ Imports:
     universalmotif,
     GenomicFeatures,
     SummarizedExperiment,
-    y3628
+    y3628,
+    glmmTMB,
+    emmeans,
+    graphics,
+    parallel
 Depends: 
     R (>= 4.1)
 Suggests: 

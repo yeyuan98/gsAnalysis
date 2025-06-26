@@ -2,37 +2,61 @@
 % Please edit documentation in R/intron.AS.R
 \name{rmats_filter}
 \alias{rmats_filter}
-\title{Filtering rMATS output of different AS patterns}
+\title{Assign filter labels of rMATS output}
 \usage{
-rmats_filter(df, supp_reads = c(5, 2), incLvl_limits = c(0.05, 0.95))
+rmats_filter(
+  df,
+  readCov = 10,
+  maxPSI = 0.95,
+  minPSI = 0.05,
+  sigFDR = 0.1,
+  sigDeltaPSI = 0.05,
+  res_column = "filter"
+)
 }
 \arguments{
-\item{df}{Data frame of parsed rMATS output. Use \code{rmats_read()}.}
+\item{df}{rMATS data read by \code{rmats_read()}.}
 
-\item{supp_reads}{Supporting read filter. See details.}
+\item{readCov}{Minimum read coverage.}
 
-\item{incLvl_limits}{Inclusion level filter. See details.}
+\item{maxPSI}{Maximum percent spliced-in PSI.}
+
+\item{minPSI}{Minimum PSI.}
+
+\item{sigFDR}{FDR threshold for significance.}
+
+\item{sigDeltaPSI}{PSI threshold for significance.}
+
+\item{res_column}{Which column to store filter results}
 }
 \value{
-Filtered rMATS output. See details.
+rMATS data table with filter label column \code{filter}.
 }
 \description{
-Filtering rMATS output of different AS patterns
+Assign filter labels of rMATS output
 }
 \details{
-Typically, it is desirable to filter the rMATS output to:
-\itemize{
-\item Reject detected AS events that have too few supporting reads.
-\item Remove AS events whose inclusion levels are extreme.
+This function reproduces the data filter demonstrated in Xing Lab 2024
+Nature Protocol tutorial. See Github repository
+Xinglab/rmats-turbo-tutorial and refer to rmats_filtering.py.
+
+AS events that does not satisfy any of the following criteria will be given
+the \emph{remove} label:
+\enumerate{
+\item Average read counts (IJC+SJC) in both Sample 1 and Sample 2 conditions
+are at least \code{readCov}.
+\item Average PSI in both Sample 1 and Sample 2 conditions are between
+\code{minPSI} and \code{maxPSI}.
 }
 
-This function applies the following filters (default parameters assumed):
+If all criteria above are satisfied, events will be labeled by statistical
+significance:
 \enumerate{
-\item Supporting read count (both EJC and IJC) must be >=5 in >=2 samples.
-\item Inclusion level must be in the range of 0.05-0.95.
+\item \code{FDR < sigFDR} and \code{IncLevelDifference > sigDeltaPSI}: \emph{up}.
+\item \code{FDR < sigFDR} and \code{IncLevelDifference < -sigDeltaPSI}: \emph{down}.
+\item Otherwise: \emph{ns}.
 }
 }
 \examples{
-#TODO
-
+# TODO
 }

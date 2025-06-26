@@ -46,3 +46,55 @@ writeXStringSetNamed <- function(x, filepath, append = FALSE, compress = FALSE, 
   file.remove(tf)
   return(invisible())
 }
+
+#' Read STAR Aligner Gene Counts
+#'
+#' @param named_paths Named list of count table paths.
+#' @param clean Boolean, whether to remove entries starting with "N_".
+#'
+#' @returns `SummarizedExperiment` of counts. Metadata `sample` will be names.
+#' @export
+#'
+#' @examples
+#' # TODO
+readStarGeneCounts <- function(named_paths, clean = FALSE){
+
+  # Check that sample names are unique
+  samples <- names(named_paths)
+  if (length(unique(samples)) != length(samples))
+    stop("Sample names (list names) must be unique.")
+
+  # Read in counts
+  data <- lapply(seq_along(named_paths), function(idx){
+    fp <- named_paths[[idx]]
+    df <- readr::read_delim(
+      fp, delim = "\t", col_types = "ciii", skip = 0,
+      col_names = c("symbol", samples[idx], "count.F", "count.R"))
+    return(df[,1:2])
+  })
+
+  # Join counts
+  data <- Reduce(function(x,y) dplyr::full_join(x,y,by = "symbol"), data)
+
+  # Convert into matrix
+  data.mat <- data[,-1]
+  data.mat <- as.matrix(data.mat)
+  rownames(data.mat) <- data$symbol
+  if (!all(colnames(data.mat) == samples))
+    stop("Sample name doesn't match. Submit issue.")
+  colnames(data.mat) <- NULL
+
+  # Remove uninformative symbols if asked
+  if (clean){
+    deselect <-
+      row.names(data.mat) %in%
+      c("N_unmapped", "N_multimapping", "N_noFeature", "N_ambiguous")
+    data.mat <- data.mat[!deselect,]
+  }
+
+  # Construct SummarizedExperiment
+  se <- SummarizedExperiment::SummarizedExperiment(
+    assays = list(counts = data.mat), colData = data.frame(sample = samples)
+  )
+  return(se)
+}

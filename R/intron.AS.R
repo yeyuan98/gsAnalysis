@@ -95,69 +95,91 @@ rmats_read <- function(outputs.dir, method){
 }
 
 
-#' Filtering rMATS output of different AS patterns
+#' Assign filter labels of rMATS output
 #'
-#' @param df Data frame of parsed rMATS output. Use `rmats_read()`.
-#' @param supp_reads Supporting read filter. See details.
-#' @param incLvl_limits Inclusion level filter. See details.
+#' @param df rMATS data read by `rmats_read()`.
+#' @param readCov Minimum read coverage.
+#' @param maxPSI Maximum percent spliced-in PSI.
+#' @param minPSI Minimum PSI.
+#' @param sigFDR FDR threshold for significance.
+#' @param sigDeltaPSI PSI threshold for significance.
+#' @param res_column Which column to store filter results
 #'
-#' @return Filtered rMATS output. See details.
+#' @returns rMATS data table with filter label column `filter`.
 #' @export
+#'
 #' @details
-#' Typically, it is desirable to filter the rMATS output to:
+#' This function reproduces the data filter demonstrated in Xing Lab 2024
+#' Nature Protocol tutorial. See Github repository
+#' Xinglab/rmats-turbo-tutorial and refer to rmats_filtering.py.
 #'
-#' - Reject detected AS events that have too few supporting reads.
-#' - Remove AS events whose inclusion levels are extreme.
+#' AS events that does not satisfy any of the following criteria will be given
+#' the *remove* label:
 #'
-#' This function applies the following filters (default parameters assumed):
+#' 1. Average read counts (IJC+SJC) in both Sample 1 and Sample 2 conditions
+#' are at least `readCov`.
+#' 2. Average PSI in both Sample 1 and Sample 2 conditions are between
+#' `minPSI` and `maxPSI`.
 #'
-#' 1. Supporting read count (both EJC and IJC) must be >=5 in >=2 samples.
-#' 2. Inclusion level must be in the range of 0.05-0.95.
+#' If all criteria above are satisfied, events will be labeled by statistical
+#' significance:
+#'
+#' 1. `FDR < sigFDR` and `IncLevelDifference > sigDeltaPSI`: *up*.
+#' 2. `FDR < sigFDR` and `IncLevelDifference < -sigDeltaPSI`: *down*.
+#' 3. Otherwise: *ns*.
 #'
 #' @examples
-#' #TODO
-#'
-rmats_filter <- function(df, supp_reads = c(5, 2), incLvl_limits = c(.05, .95)){
+#' # TODO
+rmats_filter <- function(
+    df, readCov = 10, maxPSI = .95, minPSI = .05,
+    sigFDR = .1, sigDeltaPSI = .05, res_column = "filter"
+){
 
-  # Helper functions for filtering
-  suppReads.summary <- \(x){
-    # Criteria, applied to junction counts
-    x <- as.numeric(x)
-    # At least two samples report >= 5 junction reads
-    return(sum(x >= supp_reads[1], na.rm = TRUE) >= supp_reads[2])
-  }
-  incLevel.summary <- \(x){
-    # Criteria, applied to inclusion levels
-    x <- stats::median(as.numeric(x), na.rm = TRUE)
-    # Median inclusion level is not extreme
-    return(x >= incLvl_limits[1] & x <= incLvl_limits[2])
-  }
+  # Calculate parameters
+  suppressWarnings({
+    averageCountSample1 <-
+      y3628::str_split_summary(df$IJC_SAMPLE_1, ",", \(x) sum(as.numeric(x)))+
+      y3628::str_split_summary(df$SJC_SAMPLE_1, ",", \(x) sum(as.numeric(x)))
+    averageCountSample1 <-
+      averageCountSample1 /
+      y3628::str_split_summary(df$IJC_SAMPLE_1, ",", length)
 
-  # Apply filter on both sample groups
-  suppressWarnings(
-    SignifLevel1 <-
-      y3628::str_split_summary(df$IJC_SAMPLE_1, ",", suppReads.summary) &
-      y3628::str_split_summary(df$SJC_SAMPLE_1, ",", suppReads.summary) &
-      y3628::str_split_summary(df$IncLevel1, ",", incLevel.summary)
+    averageCountSample2 <-
+      y3628::str_split_summary(df$IJC_SAMPLE_2, ",", \(x) sum(as.numeric(x)))+
+      y3628::str_split_summary(df$SJC_SAMPLE_2, ",", \(x) sum(as.numeric(x)))
+    averageCountSample2 <-
+      averageCountSample2 /
+      y3628::str_split_summary(df$IJC_SAMPLE_2, ",", length)
+
+    averagePsiSample1 <-
+      y3628::str_split_summary(df$IncLevel1, ",", \(x) sum(as.numeric(x), na.rm = TRUE))
+    averagePsiSample1 <-
+      averagePsiSample1 /
+      y3628::str_split_summary(df$IncLevel1, ",", length)
+
+    averagePsiSample2 <-
+      y3628::str_split_summary(df$IncLevel2, ",", \(x) sum(as.numeric(x), na.rm = TRUE))
+    averagePsiSample2 <-
+      averagePsiSample2 /
+      y3628::str_split_summary(df$IncLevel2, ",", length)
+  })
+
+  # Designate group
+  #   Here, following the XingLab standards.
+  df[[res_column]] <- ifelse(
+    averageCountSample1 >= readCov &
+      averageCountSample2 >= readCov &
+      averagePsiSample1 <= maxPSI & averagePsiSample2 <= maxPSI &
+      averagePsiSample1 >= minPSI & averagePsiSample2 >= minPSI,
+    ifelse(
+      df$FDR <= sigFDR & df$IncLevelDifference >= sigDeltaPSI,
+      "up", ifelse(
+        df$FDR <= sigFDR & df$IncLevelDifference <= -sigDeltaPSI,
+        "down", "ns"
+      )
+    ), "remove"
   )
-  suppressWarnings(
-    SignifLevel2 <-
-      y3628::str_split_summary(df$IJC_SAMPLE_2, ",", suppReads.summary) &
-      y3628::str_split_summary(df$SJC_SAMPLE_2, ",", suppReads.summary) &
-      y3628::str_split_summary(df$IncLevel2, ",", incLevel.summary)
-  )
-
-  # Report and return
-  final <- SignifLevel1 & SignifLevel2
-  message(paste(
-    "rMATS filtering:",
-    paste0("Before filtering = ", nrow(df)),
-    paste0("Group1 pass filter = ", sum(SignifLevel1)),
-    paste0("Group2 pass filter = ", sum(SignifLevel2)),
-    paste0("Both groups passed (final) = ", sum(final))
-    , sep = "\n    "
-  ))
-  return(df[final,])
+  return(df)
 }
 
 #' Converts rMATS data frame to GenomicRange
@@ -204,6 +226,7 @@ rmats_toGRange <- function(df, ...){
 #' - `validated`: read the "IRFinder-IR-nondir-val.txt"
 #' - `full`: read the "IRFinder-IR-nondir.txt"
 #'
+#' For column names please refer to the function body
 #' @examples
 #' #TODO
 IRFinderS_read <- function(result.dir, type.samples = "validated"){
@@ -263,37 +286,48 @@ IRFinderS_read <- function(result.dir, type.samples = "validated"){
 #'
 #' First, read in retained introns from each sample by `IRFinderS_read`.
 #'
-#' Introns that have warnings defined by `wl` is removed from each sample.
-#' `wl` definition follows that of the `IRFinder Diff` routine.
-#'
-#' Unique introns are defined by columns specified in `join.column`.
-#'
-#' Next, consensus introns are determined. If an intron is found in at least
-#' `min.samples` of samples it is considered as a consensus intron.
-#'
-#' Finally, intron scores from the 'full' data table are extracted,
-#' which will be put as the "scores" assay in the output SE object.
-#'
 #' `named.result.dirs` must be a named character vector whose:
 #'
 #' * names = group name
 #' * values = full path to the sample result directories
 #'
+#' Introns that have warnings defined by `wl` is removed from each sample.
+#' `wl` definition follows that of the `IRFinder Diff` routine.
+#'
+#' Unique introns are defined by columns specified in `join.columns`.
+#'
+#' Next, consensus introns are determined. If an intron is found in at least
+#' `min.samples` of samples it is considered as a consensus intron.
+#'
+#' Finally, intron data from the 'full' data table are extracted,
+#' which will be put as assays in the output SE object. Which data columns are
+#' included is defined by `assay.columns`.
+#'
+#' ## `wl` filtering
+#'
+#' This filtering determines whether an intron is included in a sample.
+#' It looks at the warning flags by IRFinder and possible values are:
+#'
+#' 0 -> no filter; 1 -> LowCover introns removed; 2 -> Lowcover & LowSplicing;
+#' 3 -> LowCover & LowSplicing & MinorIsoform;
+#' 4 -> LowCover & LowSplicing & MinorIsoform & NonUniformIntronCover
+#'
 #' @param named.result.dirs Named paths to result directories, see description.
-#' @param score.column Which one column to read in as score.
-#' @param join.column Which columns define an intron.
+#' @param assay.columns Which column(s) to read in as assays of the output.
+#' @param join.columns Which columns define an intron.
 #' @param type.samples Forwarded to `IRFinderS_read()`.
 #' @param min.samples How to filter retained introns, see description.
 #' @param wl How to filter retained introns, see description.
 #'
-#' @return `SummarizedExperiment` object.
+#' @return `SummarizedExperiment` object of IRFinder results.
 #' @export
 #'
 #' @examples
 #' #TODO
 IRFinderS_readSamples <- function(
-    named.result.dirs, score.column = "IR.ratio",
-    join.column = c("chr", "start", "end", "strand", "symbol"),
+    named.result.dirs,
+    assay.columns = c("IR.ratio", "depth", "n.reads.spliceExact"),
+    join.columns = c("chr", "start", "end", "strand", "symbol"),
     type.samples = "validated", min.samples = 3, wl = 0
 ){
 
@@ -323,7 +357,7 @@ IRFinderS_readSamples <- function(
     #   only keep the join columns
     dfs.val <- lapply(
       dfs.val, function(df){
-        dplyr::select(df, dplyr::all_of(join.column))
+        dplyr::select(df, dplyr::all_of(join.columns))
       }
     )
   } else stop("Unsupported sample type.")
@@ -363,14 +397,19 @@ IRFinderS_readSamples <- function(
   #   rowRanges
   gr <- GenomicRanges::makeGRangesFromDataFrame(consensusFromVal)
   names(gr) <- with(consensusFromVal, paste0(symbol,"_",start,"-",end))
-  #   assay matrix
-  scores.mat <- lapply(dfs, function(df) df[[score.column]])
-  scores.mat <- Reduce(cbind, scores.mat)
+  #   assay matrices
+  assay.mats <- lapply(
+    assay.columns, \(column){
+      mat <- lapply(dfs, function(df) df[[column]])
+      Reduce(cbind, mat)
+    }
+  )
+  names(assay.mats) <- assay.columns
   #   colData
   coldat <- data.frame(group = names(named.result.dirs))
   #   construct object
   res <- SummarizedExperiment::SummarizedExperiment(
-    assays = list(scores = scores.mat), rowRanges = gr, colData = coldat
+    assays = assay.mats, rowRanges = gr, colData = coldat
   )
   colnames(res) <- NULL
   return(res)
